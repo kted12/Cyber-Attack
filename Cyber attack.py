@@ -1,4 +1,8 @@
-import simplegui
+try:
+    import simplegui
+except ImportError:
+    import SimpleGUICS2Pygame.simpleguics2pygame as simplegui
+
 import random
 import math
 
@@ -41,6 +45,8 @@ fire_rate = 12
 speed = 5  
 move_direction = {"up": False, "down": False, "left": False, "right": False}
 frames = 0
+hearts = 3
+game_over = False 
 
 # Enemy settings
 enemy_speed = 1
@@ -62,7 +68,7 @@ frame_index = 0
 frame_counter = 0  
 
 def restart():
-    global bullets, enemies, score, high_score, enemy_speed, frames, speed, fire_rate, wave, kills, player_pos
+    global bullets, enemies, score, high_score, enemy_speed, frames, speed, fire_rate, wave, kills, player_pos,hearts,game_over
     bullets = []
     enemies = []
     score = 0
@@ -73,10 +79,15 @@ def restart():
     speed = 5
     fire_rate = 12
     player_pos = Vector(WIDTH // 2, HEIGHT // 2)
+    hearts = 3
+    game_over = False 
 
 def update():
-    global frames, score, player_pos, enemy_speed, high_score, kills, wave, frame_index, frame_counter
+    global frames, score, player_pos, enemy_speed, high_score, kills, wave, frame_index, frame_counter,hearts,game_over
     frames += 1
+
+    if game_over:
+        return
 
     # Move player with keys
     movement = Vector(0, 0)
@@ -131,6 +142,14 @@ def update():
                 if score > high_score:
                     high_score = score
                 break
+    collision_threshold = 50 + 15 
+    for enemy in enemies[:]:
+        if enemy.distance_to(player_pos) < collision_threshold:
+            hearts -= 1
+            enemies.remove(enemy)
+            if hearts <= 0:
+                game_over = True
+                break
 
     # Enemy spawning
     if frames % enemy_spawn_rate == 0:
@@ -165,8 +184,14 @@ def draw(canvas):
             canvas.draw_circle(enemy.to_tuple(), 15, 1, "Green", "Green")
 
     # Draw score, wave
-    canvas.draw_text(f"Wave: {wave} | Kills: {kills}", (20, 40), 24, "White")
+    canvas.draw_text(f"Wave: {wave} | Kills: {kills} | Hearts: {hearts}", (20, 40), 24, "White")
     canvas.draw_text("Press R to restart", (20, 70), 24, "White")
+
+    if game_over:
+        canvas.draw_polygon([(0,0), (WIDTH,0), (WIDTH,HEIGHT), (0,HEIGHT)], 1, "Black", "rgba(0, 0, 0, 0.7)")
+        canvas.draw_text("GAME OVER", (WIDTH / 2 - 150, HEIGHT / 2), 50, "Red")
+        canvas.draw_text("Press R to restart", (WIDTH / 2 - 170, HEIGHT / 2 + 60), 30, "White")
+
 
 def keydown(key):
     if key == simplegui.KEY_MAP['w']:
