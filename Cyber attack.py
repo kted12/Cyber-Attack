@@ -33,13 +33,17 @@ move_direction = {"up": False, "down": False, "left": False, "right": False}
 hearts = 3
 
 # Powerups
-powerup_rate, powertime = 500, 300
+powerup_rate, powertime = 500, 600
 powertype = ["Shield", "Rapid Fire", "Slow time"]
 rapid_active = slow_active = shield_active = False
 rapid_timer = slow_timer = shield_timer = 0
 
 # Enemy settings
 enemy_speed, enemy_spawn_rate = 1, 100
+
+# Background image
+BACKGROUND_URL = "https://i.postimg.cc/MGKW3XzS/C64-F7-E71-FF55-4993-B546-169-BD3-F0445-D.jpg"
+background_img = simplegui.load_image(BACKGROUND_URL)
 
 # Sprite sheet
 SPRITE_URL = "https://i.postimg.cc/KcHbNphK/f5f9c273-d809-4446-ad4c-16ff9d255c6d-removalai-preview.png"
@@ -157,6 +161,16 @@ def update():
 def draw(canvas):
     update()
 
+    # Draw background
+    bg_center = (background_img.get_width() / 2, background_img.get_height() / 2)
+    bg_size = (background_img.get_width(), background_img.get_height())
+    # Draw background if loaded
+    if background_img.get_width() > 0 and background_img.get_height() > 0:
+        bg_center = (background_img.get_width() / 2, background_img.get_height() / 2)
+        bg_size = (background_img.get_width(), background_img.get_height())
+        canvas.draw_image(background_img, bg_center, bg_size, (WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
+    else:
+        canvas.draw_text("Loading background...", (WIDTH / 2 - 150, HEIGHT / 2), 36, "White")
     if game_state == "welcome":
         canvas.draw_text("CYBER ATTACK", (WIDTH/2 - 250, HEIGHT/2 - 100), 64, "Cyan")
         canvas.draw_text("Press SPACE to Start", (WIDTH/2 - 180, HEIGHT - 100), 40, "White")
