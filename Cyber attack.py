@@ -1,3 +1,4 @@
+
 try:
     import simplegui
 except ImportError:
@@ -64,14 +65,23 @@ class Game:
 
         self.score = self.high_score = self.kills = self.wave = 0
         self.speed, self.fire_rate, self.frames = 5, 12, 0
+        self.wave_popup_timer = 0
+        self.wave_popup_text = ""
 
         self.powerup_rate, self.powertime = 500, 600
+        self.powertype = ["Shield", "Rapid Fire", "Slow time"]
         self.rapid_active = self.slow_active = self.shield_active = False
         self.rapid_timer = self.slow_timer = self.shield_timer = 0
 
         self.enemy_speed, self.enemy_spawn_rate = 1, 100
 
+        # Load images
+        self.background_img = simplegui.load_image("https://i.postimg.cc/MGKW3XzS/C64-F7-E71-FF55-4993-B546-169-BD3-F0445-D.jpg")
         self.sprite_sheet = simplegui.load_image("https://i.postimg.cc/KcHbNphK/f5f9c273-d809-4446-ad4c-16ff9d255c6d-removalai-preview.png")
+        self.slow_clock_img = simplegui.load_image("https://i.postimg.cc/Y2sXHQ34/clock-e.png")
+        self.shield_img = simplegui.load_image("https://i.postimg.cc/65FVwnMy/SHIELDTRAN.png")
+        self.rapid_img = simplegui.load_image("https://i.postimg.cc/2SpWgm5W/BULLETTRAN.png")
+        
         self.enemy_images = [
             simplegui.load_image(url) for url in [
                 "https://i.postimg.cc/PJ7HSyJB/7-DBB1-F73-01-EF-4194-A354-161-C218-C98-A3.png",
@@ -80,11 +90,6 @@ class Game:
                 "https://i.postimg.cc/5NJyryXk/C75-FC200-F2-D3-4158-9759-2-CC825-E710-E9.png"
             ]
         ]
-
-        self.background_img = simplegui.load_image("https://i.postimg.cc/MGKW3XzS/C64-F7-E71-FF55-4993-B546-169-BD3-F0445-D.jpg")
-        self.slow_clock_img = simplegui.load_image("https://i.postimg.cc/wBM3jk6D/Chat-GPT-Image-Mar-27-2025-04-16-56-PM.png")
-
-        self.powertype = ["Shield", "Rapid Fire", "Slow time"]
 
         self.start_button_pos = (WIDTH // 2 - 100, HEIGHT // 2 + 20)
         self.start_button_size = (200, 50)
@@ -102,6 +107,7 @@ class Game:
         self.paused = False
         self.rapid_active = self.slow_active = self.shield_active = False
         self.rapid_timer = self.slow_timer = self.shield_timer = 0
+        self.wave_popup_timer = 0
 
     def shoot(self):
         self.bullets.append(Vector(self.player.pos.x + 17, self.player.pos.y - 50))
@@ -115,7 +121,15 @@ class Game:
         self.powerups.append({"type": random.choice(self.powertype), "pos": pos})
 
     def update(self):
-        if self.game_over or self.state != "playing" or self.paused:
+        if self.game_over or self.state != "playing":
+            return
+
+        # Handle wave popup timer (no longer pauses the game)
+        if self.wave_popup_timer > 0:
+            self.wave_popup_timer -= 1
+
+        # Don't return early if paused - we want the wave popup to show during "paused" state
+        if self.paused and self.wave_popup_timer <= 0:
             return
 
         self.frames += 1
@@ -146,9 +160,11 @@ class Game:
                     self.bullets.remove(bullet)
                     self.score += 1
                     self.kills += 1
-                    if self.kills % 30 == 0:
+                    if self.kills % 50 == 0:
                         self.wave += 1
-                        self.enemy_speed *= 1.2
+                        self.enemy_speed *= 1.5
+                        self.wave_popup_text = f"WAVE {self.wave}"
+                        self.wave_popup_timer = 60  # Show for 1 second at 60 FPS
                     if self.score > self.high_score:
                         self.high_score = self.score
                     break
@@ -186,15 +202,13 @@ GAME = Game()
 def draw(canvas):
     GAME.update()
 
-    bg = GAME.background_img
-    bg_center = (bg.get_width() / 2, bg.get_height() / 2)
-    bg_size = (bg.get_width(), bg.get_height())
+    # Background
+    bg_center = (GAME.background_img.get_width() / 2, GAME.background_img.get_height() / 2)
+    bg_size = (GAME.background_img.get_width(), GAME.background_img.get_height())
+    if GAME.background_img.get_width() > 0:
+        canvas.draw_image(GAME.background_img, bg_center, bg_size, (WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
 
-    if bg.get_width() > 0 and bg.get_height() > 0:
-        canvas.draw_image(bg, bg_center, bg_size, (WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
-    else:
-        canvas.draw_text("Loading background...", (WIDTH / 2 - 150, HEIGHT / 2), 36, "White")
-
+    # Welcome screen
     if GAME.state == "welcome":
         canvas.draw_text("CYBER ATTACK", (WIDTH/2 - 250, HEIGHT/2 - 100), 64, "Cyan")
         canvas.draw_text("Click the button to start", (WIDTH/2 - 200, HEIGHT/2 - 50), 36, "White")
@@ -204,63 +218,99 @@ def draw(canvas):
         canvas.draw_text("START", (x + 45, y + 35), 30, "Black")
         return
 
+    # Player
     SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_ROWS, SPRITE_COLS = 600, 453, 8, 8
     FRAME_WIDTH, FRAME_HEIGHT = SPRITE_WIDTH / SPRITE_COLS, SPRITE_HEIGHT / SPRITE_ROWS
     sprite_center = (FRAME_WIDTH * GAME.player.frame_index + FRAME_WIDTH / 2, FRAME_HEIGHT / 2)
-    canvas.draw_image(GAME.sprite_sheet, sprite_center, (FRAME_WIDTH, FRAME_HEIGHT), GAME.player.pos.to_tuple(), (100, 100), -math.pi/2)
+    canvas.draw_image(GAME.sprite_sheet, sprite_center, (FRAME_WIDTH, FRAME_HEIGHT), 
+                     GAME.player.pos.to_tuple(), (100, 100), -math.pi/2)
 
+    # Bullets
     for bullet in GAME.bullets:
         canvas.draw_circle(bullet.to_tuple(), 5, 1, "White", "White")
 
+    # Enemies
     for pos, img in GAME.enemies:
         canvas.draw_image(img, (img.get_width() / 2, img.get_height() / 2), 
-                          (img.get_width(), img.get_height()), pos.to_tuple(), (50, 50))
+                         (img.get_width(), img.get_height()), pos.to_tuple(), (50, 50))
 
+    # Powerups
     for power in GAME.powerups:
-        color = {"Shield": "Yellow", "Rapid Fire": "Blue", "Slow time": "Red"}[power["type"]]
-        canvas.draw_circle(power["pos"].to_tuple(), 15, 1, color, color)
-
-    if GAME.shield_active:
-        canvas.draw_circle(GAME.player.pos.to_tuple(), 60, 2, "Yellow")
-        canvas.draw_text("Shield Active", (20, 110), 24, "Yellow")
-    if GAME.rapid_active:
-        canvas.draw_text("Rapid Fire Active", (20, 140), 24, "Blue")
-    if GAME.slow_active:
-        canvas.draw_text("Slow Time Active", (60, 170), 24, "Red")
-        if GAME.slow_clock_img.get_width() > 0:
-            canvas.draw_image(
-                GAME.slow_clock_img,
-                (GAME.slow_clock_img.get_width() / 2, GAME.slow_clock_img.get_height() / 2),
-                (GAME.slow_clock_img.get_width(), GAME.slow_clock_img.get_height()),
-                (30, 180),
-                (30, 30)
-            )
-
+        pos = power["pos"].to_tuple()
+        if power["type"] == "Shield":
+            canvas.draw_image(GAME.shield_img, 
+                            (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2),
+                            (GAME.shield_img.get_width(), GAME.shield_img.get_height()),
+                            pos, (40, 40))
+        elif power["type"] == "Rapid Fire":
+            canvas.draw_image(GAME.rapid_img,
+                            (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2),
+                            (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()),
+                            pos, (40, 40))
+        elif power["type"] == "Slow time":
+            canvas.draw_image(GAME.slow_clock_img,
+                            (GAME.slow_clock_img.get_width()/2, GAME.slow_clock_img.get_height()/2),
+                            (GAME.slow_clock_img.get_width(), GAME.slow_clock_img.get_height()),
+                            pos, (50, 37.5))
+            
+    # UI Elements
+    canvas.draw_polygon([(10, 10), (380, 10), (380, 50), (10, 50)], 2, "Blue", "Blue")
     canvas.draw_text(f"Wave: {GAME.wave} | Kills: {GAME.kills} | Hearts: {GAME.player.hearts}", (20, 40), 24, "White")
-    canvas.draw_text("Press P to Pause/Resume", (20, 70), 24, "White")
 
-    if GAME.paused:
+    canvas.draw_polygon([(690, 10), (1190, 10), (1190, 50), (690, 50)], 2, "White", "Black")
+    canvas.draw_text("Press R to Restart | Press P to Pause/Resume", (700, 35), 24, "White")
+
+    # Powerup indicators
+    y_offset = 110
+    if GAME.shield_active:
+        canvas.draw_text("Shield Active", (60, y_offset), 24, "Yellow")
+        canvas.draw_image(GAME.shield_img, 
+                        (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2),
+                        (GAME.shield_img.get_width(), GAME.shield_img.get_height()),
+                        (30, y_offset + 10), (30, 30))
+        y_offset += 30
+
+    if GAME.rapid_active:
+        canvas.draw_text("Rapid Fire Active", (60, y_offset), 24, "Blue")
+        canvas.draw_image(GAME.rapid_img,
+                        (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2),
+                        (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()),
+                        (30, y_offset + 10), (30, 30))
+        y_offset += 30
+
+    if GAME.slow_active:
+        canvas.draw_text("Slow Time Active", (60, y_offset), 24, "Red")
+        canvas.draw_image(GAME.slow_clock_img,
+                        (GAME.slow_clock_img.get_width()/2, GAME.slow_clock_img.get_height()/2),
+                        (GAME.slow_clock_img.get_width(), GAME.slow_clock_img.get_height()),
+                        (30, y_offset + 10), (40, 30))
+
+    # Wave popup (now appears without pausing the game)
+    if GAME.wave_popup_timer > 0:
+        canvas.draw_text(GAME.wave_popup_text, (WIDTH // 2 - 100, HEIGHT // 2), 60, "Orange")
+
+    # Paused screen (only shows when manually paused, not during wave popup)
+    if GAME.paused and GAME.wave_popup_timer <= 0:
         canvas.draw_polygon([(0, 0), (WIDTH, 0), (WIDTH, HEIGHT), (0, HEIGHT)], 1, "Black", "rgba(0, 0, 0, 0.5)")
         canvas.draw_text("PAUSED", (WIDTH / 2 - 80, HEIGHT / 2), 50, "White")
-        canvas.draw_text("Press P to Resume", (WIDTH / 2 - 170, HEIGHT / 2 + 60), 30, "White")
-        canvas.draw_text("Press R to Restart", (WIDTH / 2 - 170, HEIGHT / 2 + 90), 30, "White")
-        canvas.draw_text("Press M to Return to Menu", (WIDTH / 2 - 170, HEIGHT / 2 + 120), 30, "White")
 
+    # Game over screen
     if GAME.game_over:
         canvas.draw_polygon([(0,0), (WIDTH,0), (WIDTH,HEIGHT), (0,HEIGHT)], 1, "Black", "rgba(0, 0, 0, 0.7)")
         canvas.draw_text("GAME OVER", (WIDTH / 2 - 150, HEIGHT / 2), 50, "Red")
-        canvas.draw_text("Press R to Restart", (WIDTH / 2 - 170, HEIGHT / 2 + 90), 30, "White")
-        canvas.draw_text("Press M to Return to Menu", (WIDTH / 2 - 200, HEIGHT / 2 + 120), 30, "White")
-
+        canvas.draw_text("Press R to Restart", (WIDTH / 2 - 170, HEIGHT / 2 + 60), 30, "White")
+        canvas.draw_text("Press M to Return to Menu", (WIDTH / 2 - 200, HEIGHT / 2 + 110), 30, "White")
 
 def keydown(key):
-    if GAME.state == "playing" and not GAME.paused:
+    if GAME.state == "playing":
         if key == simplegui.KEY_MAP['w']: GAME.move_direction["up"] = True
         if key == simplegui.KEY_MAP['s']: GAME.move_direction["down"] = True
         if key == simplegui.KEY_MAP['a']: GAME.move_direction["left"] = True
         if key == simplegui.KEY_MAP['d']: GAME.move_direction["right"] = True
-    if GAME.state == "playing" and key == simplegui.KEY_MAP['p']:
-        GAME.paused = not GAME.paused
+        if key == simplegui.KEY_MAP['p']:
+            # Only toggle pause if we're not showing a wave popup
+            if GAME.wave_popup_timer <= 0:
+                GAME.paused = not GAME.paused
 
 def keyup(key):
     if GAME.state == "playing":
@@ -272,7 +322,6 @@ def keyup(key):
             GAME.restart()
         if key == simplegui.KEY_MAP['m'] and (GAME.game_over or GAME.paused):
             GAME.state = "welcome"
-            GAME.paused = False
 
 def click(pos):
     if GAME.state == "welcome":
@@ -288,4 +337,3 @@ frame.set_keydown_handler(keydown)
 frame.set_keyup_handler(keyup)
 frame.set_mouseclick_handler(click)
 frame.start()
-
