@@ -259,11 +259,13 @@ def draw(canvas):
     y_offset = 110
     if GAME.shield_active:
         canvas.draw_text("Shield Active", (60, y_offset), 24, "Yellow")
-        canvas.draw_image(GAME.shield_img, (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2), (GAME.shield_img.get_width(), GAME.shield_img.get_height()), (30, y_offset + 10), (30, 30)), y_offset += 30
+        canvas.draw_image(GAME.shield_img, (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2), (GAME.shield_img.get_width(), GAME.shield_img.get_height()), (30, y_offset + 10), (30, 30)), 
+        y_offset += 30
 
     if GAME.rapid_active:
         canvas.draw_text("Rapid Fire Active", (60, y_offset), 24, "Blue")
-        canvas.draw_image(GAME.rapid_img, (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2), (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()), (30, y_offset + 10), (30, 30)) y_offset += 30
+        canvas.draw_image(GAME.rapid_img, (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2), (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()), (30, y_offset + 10), (30, 30)) 
+        y_offset += 30
 
     if GAME.slow_active:
         canvas.draw_text("Slow Time Active", (60, y_offset), 24, "Red")
