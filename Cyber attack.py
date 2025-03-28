@@ -1,4 +1,3 @@
-
 try:
     import simplegui
 except ImportError:
@@ -14,12 +13,18 @@ WIDTH, HEIGHT = 1200, 800
 class Vector:
     def __init__(self, x, y): 
         self.x, self.y = x, y
-    def __add__(self, other): return Vector(self.x + other.x, self.y + other.y)
-    def __sub__(self, other): return Vector(self.x - other.x, self.y - other.y)
-    def __mul__(self, scalar): return Vector(self.x * scalar, self.y * scalar)
-    def __truediv__(self, scalar): return Vector(self.x / scalar, self.y / scalar)
-    def distance_to(self, other): return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
-    def to_tuple(self): return (self.x, self.y)
+    def __add__(self, other): 
+        return Vector(self.x + other.x, self.y + other.y)
+    def __sub__(self, other): 
+        return Vector(self.x - other.x, self.y - other.y)
+    def __mul__(self, scalar): 
+        return Vector(self.x * scalar, self.y * scalar)
+    def __truediv__(self, scalar): 
+        return Vector(self.x / scalar, self.y / scalar)
+    def distance_to(self, other): 
+        return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
+    def to_tuple(self): 
+        return (self.x, self.y)
 
 # Player class
 class Player:
@@ -108,6 +113,7 @@ class Game:
         self.rapid_active = self.slow_active = self.shield_active = False
         self.rapid_timer = self.slow_timer = self.shield_timer = 0
         self.wave_popup_timer = 0
+        self.move_direction = {"up": False, "down": False, "left": False, "right": False} 
 
     def shoot(self):
         self.bullets.append(Vector(self.player.pos.x + 17, self.player.pos.y - 50))
@@ -160,7 +166,7 @@ class Game:
                     self.bullets.remove(bullet)
                     self.score += 1
                     self.kills += 1
-                    if self.kills % 50 == 0:
+                    if self.kills % 30 == 0:
                         self.wave += 1
                         self.enemy_speed *= 1.5
                         self.wave_popup_text = f"WAVE {self.wave}"
@@ -222,8 +228,7 @@ def draw(canvas):
     SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_ROWS, SPRITE_COLS = 600, 453, 8, 8
     FRAME_WIDTH, FRAME_HEIGHT = SPRITE_WIDTH / SPRITE_COLS, SPRITE_HEIGHT / SPRITE_ROWS
     sprite_center = (FRAME_WIDTH * GAME.player.frame_index + FRAME_WIDTH / 2, FRAME_HEIGHT / 2)
-    canvas.draw_image(GAME.sprite_sheet, sprite_center, (FRAME_WIDTH, FRAME_HEIGHT), 
-                     GAME.player.pos.to_tuple(), (100, 100), -math.pi/2)
+    canvas.draw_image(GAME.sprite_sheet, sprite_center, (FRAME_WIDTH, FRAME_HEIGHT), GAME.player.pos.to_tuple(), (100, 100), -math.pi/2)
 
     # Bullets
     for bullet in GAME.bullets:
@@ -231,27 +236,17 @@ def draw(canvas):
 
     # Enemies
     for pos, img in GAME.enemies:
-        canvas.draw_image(img, (img.get_width() / 2, img.get_height() / 2), 
-                         (img.get_width(), img.get_height()), pos.to_tuple(), (50, 50))
+        canvas.draw_image(img, (img.get_width() / 2, img.get_height() / 2), (img.get_width(), img.get_height()), pos.to_tuple(), (50, 50))
 
     # Powerups
     for power in GAME.powerups:
         pos = power["pos"].to_tuple()
         if power["type"] == "Shield":
-            canvas.draw_image(GAME.shield_img, 
-                            (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2),
-                            (GAME.shield_img.get_width(), GAME.shield_img.get_height()),
-                            pos, (40, 40))
+            canvas.draw_image(GAME.shield_img, (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2), (GAME.shield_img.get_width(), GAME.shield_img.get_height()), pos, (40, 40))
         elif power["type"] == "Rapid Fire":
-            canvas.draw_image(GAME.rapid_img,
-                            (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2),
-                            (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()),
-                            pos, (40, 40))
+            canvas.draw_image(GAME.rapid_img, (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2), (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()), pos, (40, 40))
         elif power["type"] == "Slow time":
-            canvas.draw_image(GAME.slow_clock_img,
-                            (GAME.slow_clock_img.get_width()/2, GAME.slow_clock_img.get_height()/2),
-                            (GAME.slow_clock_img.get_width(), GAME.slow_clock_img.get_height()),
-                            pos, (50, 37.5))
+            canvas.draw_image(GAME.slow_clock_img, (GAME.slow_clock_img.get_width()/2, GAME.slow_clock_img.get_height()/2), (GAME.slow_clock_img.get_width(), GAME.slow_clock_img.get_height()), pos, (50, 37.5))
             
     # UI Elements
     canvas.draw_polygon([(10, 10), (380, 10), (380, 50), (10, 50)], 2, "Blue", "Blue")
@@ -264,26 +259,15 @@ def draw(canvas):
     y_offset = 110
     if GAME.shield_active:
         canvas.draw_text("Shield Active", (60, y_offset), 24, "Yellow")
-        canvas.draw_image(GAME.shield_img, 
-                        (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2),
-                        (GAME.shield_img.get_width(), GAME.shield_img.get_height()),
-                        (30, y_offset + 10), (30, 30))
-        y_offset += 30
+        canvas.draw_image(GAME.shield_img, (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2), (GAME.shield_img.get_width(), GAME.shield_img.get_height()), (30, y_offset + 10), (30, 30)), y_offset += 30
 
     if GAME.rapid_active:
         canvas.draw_text("Rapid Fire Active", (60, y_offset), 24, "Blue")
-        canvas.draw_image(GAME.rapid_img,
-                        (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2),
-                        (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()),
-                        (30, y_offset + 10), (30, 30))
-        y_offset += 30
+        canvas.draw_image(GAME.rapid_img, (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2), (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()), (30, y_offset + 10), (30, 30)) y_offset += 30
 
     if GAME.slow_active:
         canvas.draw_text("Slow Time Active", (60, y_offset), 24, "Red")
-        canvas.draw_image(GAME.slow_clock_img,
-                        (GAME.slow_clock_img.get_width()/2, GAME.slow_clock_img.get_height()/2),
-                        (GAME.slow_clock_img.get_width(), GAME.slow_clock_img.get_height()),
-                        (30, y_offset + 10), (40, 30))
+        canvas.draw_image(GAME.slow_clock_img, (GAME.slow_clock_img.get_width()/2, GAME.slow_clock_img.get_height()/2), (GAME.slow_clock_img.get_width(), GAME.slow_clock_img.get_height()), (30, y_offset + 10), (40, 30))
 
     # Wave popup (now appears without pausing the game)
     if GAME.wave_popup_timer > 0:
@@ -318,9 +302,10 @@ def keyup(key):
         if key == simplegui.KEY_MAP['s']: GAME.move_direction["down"] = False
         if key == simplegui.KEY_MAP['a']: GAME.move_direction["left"] = False
         if key == simplegui.KEY_MAP['d']: GAME.move_direction["right"] = False
-        if key == simplegui.KEY_MAP['r'] and (GAME.game_over or GAME.paused):
+        if key == simplegui.KEY_MAP['r']:
             GAME.restart()
-        if key == simplegui.KEY_MAP['m'] and (GAME.game_over or GAME.paused):
+        if key == simplegui.KEY_MAP['m']:
+            GAME.restart()
             GAME.state = "welcome"
 
 def click(pos):
