@@ -54,8 +54,20 @@ BACKGROUND_URL = "https://i.postimg.cc/MGKW3XzS/C64-F7-E71-FF55-4993-B546-169-BD
 background_img = simplegui.load_image(BACKGROUND_URL)
 
 # Sprite sheet
-SPRITE_URL = "https://i.postimg.cc/KcHbNphK/f5f9c273-d809-4446-ad4c-16ff9d255c6d-removalai-preview.png"
-sprite_sheet = simplegui.load_image(SPRITE_URL)
+PLAYER_SPRITE_URL = "https://i.postimg.cc/KcHbNphK/f5f9c273-d809-4446-ad4c-16ff9d255c6d-removalai-preview.png"
+ENEMY1_URL = "https://i.postimg.cc/PJ7HSyJB/7-DBB1-F73-01-EF-4194-A354-161-C218-C98-A3.png"
+ENEMY2_URL = "https://i.postimg.cc/PJJhb9XW/429-B7-BDA-D325-487-A-BFC4-E6-B979588972.png"   
+ENEMY3_URL = "https://i.postimg.cc/qvjLSF4h/1-C4348-EC-C578-4747-B20-D-75-F6-FD192-FDE.png"
+ENEMY4_URL = "https://i.postimg.cc/5NJyryXk/C75-FC200-F2-D3-4158-9759-2-CC825-E710-E9.png"
+
+sprite_sheet = simplegui.load_image(PLAYER_SPRITE_URL)
+enemy1_img = simplegui.load_image(ENEMY1_URL)
+enemy2_img = simplegui.load_image(ENEMY2_URL)
+enemy3_img = simplegui.load_image(ENEMY3_URL)
+enemy4_img = simplegui.load_image(ENEMY4_URL)
+enemy_images = [enemy1_img, enemy2_img, enemy3_img, enemy4_img]
+
+
 SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_ROWS, SPRITE_COLS = 600, 453, 8, 8
 FRAME_WIDTH, FRAME_HEIGHT = SPRITE_WIDTH / SPRITE_COLS, SPRITE_HEIGHT / SPRITE_ROWS
 frame_index, frame_counter = 0, 0
@@ -85,7 +97,8 @@ def shoot():
     bullets.append(Vector(player_pos.x + 17, player_pos.y - 50))
 
 def spawn_enemy():
-    enemies.append(Vector(random.randint(0, WIDTH), 0))
+    enemy_img = random.choice(enemy_images)
+    enemies.append((Vector(random.randint(0, WIDTH), 0), enemy_img))
 
 def spawn_powerup():
     pos = Vector(random.randint(50, WIDTH - 50), random.randint(50, HEIGHT - 50))
@@ -130,29 +143,34 @@ def update():
 
     current_enemy_speed = enemy_speed * 0.5 if slow_active else enemy_speed
     for enemy in enemies[:]:
-        enemy.y += current_enemy_speed
-        if enemy.y > HEIGHT: enemies.remove(enemy)
+        pos, img = enemy
+        pos.y += enemy_speed
+        if pos.y > HEIGHT:
+            enemies.remove(enemy)
 
     for enemy in enemies[:]:
+        pos, img = enemy
         for bullet in bullets[:]:
-            if enemy.distance_to(bullet) < 15:
-                enemies.remove(enemy)
-                bullets.remove(bullet)
-                kills += 1
-                score += 1
-                if kills % 50 == 0:
-                    wave += 1
-                    enemy_speed *= 1.5
-                high_score = max(high_score, score)
-                break
+            if pos.distance_to(bullet) < 30:
+               enemies.remove(enemy)
+               bullets.remove(bullet)
+               score += 1
+               kills += 1
+               if kills % 30 == 0:
+                  wave += 1
+                  enemy_speed *= 1.2
+               if score > high_score:
+                    high_score = score
+               break
 
     for enemy in enemies[:]:
-        if enemy.distance_to(player_pos) < 55:
-            if not shield_active:
-                hearts -= 1
+        pos, img = enemy
+        if pos.distance_to(player_pos) < 50:
+            hearts -= 1
             enemies.remove(enemy)
             if hearts <= 0:
                 game_over = True
+                breakr = True
                 return
 
     for power in powerups[:]:
@@ -177,6 +195,7 @@ def draw(canvas):
 
     bg_center = (background_img.get_width() / 2, background_img.get_height() / 2)
     bg_size = (background_img.get_width(), background_img.get_height())
+    
     if background_img.get_width() > 0 and background_img.get_height() > 0:
         canvas.draw_image(background_img, bg_center, bg_size, (WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
     else:
@@ -198,7 +217,9 @@ def draw(canvas):
         canvas.draw_circle(bullet.to_tuple(), 5, 1, "White", "White")
 
     for enemy in enemies:
-        canvas.draw_circle(enemy.to_tuple(), 15, 1, "Green", "Green")
+        pos, img = enemy
+        canvas.draw_image(img, (img.get_width() / 2, img.get_height() / 2), 
+                (img.get_width(), img.get_height()), pos.to_tuple(), (50, 50))
 
     for power in powerups:
         color = {"Shield": "Yellow", "Rapid Fire": "Blue", "Slow time": "Red"}[power["type"]]
