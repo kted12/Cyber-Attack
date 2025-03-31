@@ -1,3 +1,4 @@
+
 try:
     import simplegui
 except ImportError:
@@ -57,6 +58,76 @@ class Interaction:
     @staticmethod
     def check_collision(a, b, distance):
         return a.distance_to(b) < distance
+    
+    
+class Boss:
+    def __init__(self, boss_type, image):
+        self.pos = Vector(WIDTH // 2, -100)
+        self.size = Vector(150, 150)
+        self.image = image
+        self.health = 25 if boss_type == "tank" else 20
+        self.speed = 1 if boss_type == "tank" else 2
+        self.boss_type = boss_type
+        self.entered_screen = False
+        self.direction = 1
+        self.bullets = []
+        self.fire_delay = 60 if boss_type == "shooter" else 90
+        self.fire_timer = 0
+
+        self.name = {
+            "tank": "FIREWALL.EXE",
+            "shooter": "PACKET STORM",
+            "evader": "GLITCH WRAITH"
+        }[boss_type]
+
+    def update(self):
+        if not self.entered_screen:
+            self.pos.y += self.speed
+            if self.pos.y >= 150:
+                self.entered_screen = True
+        else:
+            self.pos.x += self.direction * 3
+            if self.pos.x < 100 or self.pos.x > WIDTH - 100:
+                self.direction *= -1
+
+            if self.boss_type == "evader":
+                for bullet in GAME.bullets:
+                    if abs(bullet.y - self.pos.y) < 150 and abs(bullet.x - self.pos.x) < 60:
+                        self.pos.x += random.choice([-10, 10])
+                        break
+
+            self.fire_timer += 1
+            if self.fire_timer >= self.fire_delay:
+                self.fire_timer = 0
+                self.bullets.append(Vector(self.pos.x, self.pos.y + 50))
+
+        for bullet in self.bullets[:]:
+            bullet.y += 5
+            if bullet.y > HEIGHT:
+                self.bullets.remove(bullet)
+
+    def draw(self, canvas):
+        canvas.draw_image(self.image,
+            (self.image.get_width() / 2, self.image.get_height() / 2),
+            (self.image.get_width(), self.image.get_height()),
+            self.pos.to_tuple(), self.size.to_tuple())
+
+        for bullet in self.bullets:
+            canvas.draw_circle(bullet.to_tuple(), 7, 1, "Red", "Red")
+
+        # Optional: health bar near boss
+        bar_width = 200
+        bar_height = 20
+        bar_x = self.pos.x - bar_width / 2
+        bar_y = self.pos.y - self.size.y / 2 - 30
+        max_health = 25 if self.boss_type == "tank" else 20
+        health_ratio = self.health / max_health
+
+        canvas.draw_polygon([(bar_x, bar_y), (bar_x + bar_width, bar_y),
+                             (bar_x + bar_width, bar_y + bar_height), (bar_x, bar_y + bar_height)], 1, "White", "Gray")
+        canvas.draw_polygon([(bar_x, bar_y), (bar_x + bar_width * health_ratio, bar_y),
+                             (bar_x + bar_width * health_ratio, bar_y + bar_height), (bar_x, bar_y + bar_height)], 1, "Red", "Red")
+
 
 # Game class
 class Game:
@@ -68,7 +139,8 @@ class Game:
         self.bullets, self.enemies, self.powerups = [], [], []
         self.move_direction = {"up": False, "down": False, "left": False, "right": False}
 
-        self.score = self.high_score = self.kills = self.wave = 0
+        self.score = self.high_score = self.kills = 0
+        self.wave = 1
         self.speed, self.fire_rate, self.frames = 5, 12, 0
         self.wave_popup_timer = 0
         self.wave_popup_text = ""
@@ -98,6 +170,14 @@ class Game:
 
         self.start_button_pos = (WIDTH // 2 - 100, HEIGHT // 2 + 20)
         self.start_button_size = (200, 50)
+        
+        self.boss = None
+        self.in_boss_fight = False
+        self.boss_images = {
+            "tank": simplegui.load_image("https://i.postimg.cc/FKMN04Jb/image.png"),
+            "shooter": simplegui.load_image("https://i.postimg.cc/mrHGL56P/image.png"),
+            "evader": simplegui.load_image("https://i.postimg.cc/7L6fKw6p/image.png")
+        }
 
     def start_game(self):
         self.state = "playing"
@@ -139,6 +219,33 @@ class Game:
             return
 
         self.frames += 1
+        
+        # Boss logic
+        if self.in_boss_fight and self.boss:
+            self.boss.update()
+            
+            for bullet in self.bullets[:]:
+                if Interaction.check_collision(bullet, self.boss.pos, 80):
+                    self.bullets.remove(bullet)
+                    self.boss.health -= 1
+                    if self.boss.health <= 0:
+                        self.boss = None
+                        self.in_boss_fight = False
+                        self.enemy_speed *= 1.1
+                        break
+            if self.boss:
+                for bullet in self.boss.bullets[:]:
+                    if Interaction.check_collision(bullet, self.player.pos, 30):
+                        if not self.shield_active:
+                            self.player.hearts -= 1
+                            if self.boss:
+                                self.boss.bullets.remove(bullet)
+                            if self.player.hearts <= 0:
+                                self.game_over = True
+                                break
+          
+
+
 
         if self.rapid_active: self.rapid_timer -= 1; self.rapid_active &= self.rapid_timer > 0
         if self.slow_active: self.slow_timer -= 1; self.slow_active &= self.slow_timer > 0
@@ -166,14 +273,23 @@ class Game:
                     self.bullets.remove(bullet)
                     self.score += 1
                     self.kills += 1
-                    if self.kills % 30 == 0:
+
+                    if self.kills % 10 == 0:
                         self.wave += 1
-                        self.enemy_speed *= 1.5
                         self.wave_popup_text = f"WAVE {self.wave}"
-                        self.wave_popup_timer = 60  # Show for 1 second at 60 FPS
+                        self.wave_popup_timer = 60
+
+                        if self.wave % 5 == 0:
+                            self.in_boss_fight = True
+                            boss_type = random.choice(["tank", "shooter", "evader"])
+                            self.boss = Boss(boss_type, self.boss_images[boss_type])
+                        else:
+                            self.enemy_speed *= 1.1
+
                     if self.score > self.high_score:
                         self.high_score = self.score
                     break
+
 
         for enemy in self.enemies[:]:
             pos, _ = enemy
@@ -195,8 +311,9 @@ class Game:
                     self.slow_active, self.slow_timer = True, self.powertime
                 self.powerups.remove(power)
 
-        if self.frames % self.enemy_spawn_rate == 0:
-            self.spawn_enemy()
+        if not self.in_boss_fight:
+            if self.frames % self.enemy_spawn_rate == 0:
+                self.spawn_enemy()
         if self.frames % self.powerup_rate == 0:
             self.spawn_powerup()
         if self.frames % (4 if self.rapid_active else self.fire_rate) == 0:
@@ -247,10 +364,37 @@ def draw(canvas):
             canvas.draw_image(GAME.rapid_img, (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2), (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()), pos, (40, 40))
         elif power["type"] == "Slow time":
             canvas.draw_image(GAME.slow_clock_img, (GAME.slow_clock_img.get_width()/2, GAME.slow_clock_img.get_height()/2), (GAME.slow_clock_img.get_width(), GAME.slow_clock_img.get_height()), pos, (50, 37.5))
-            
+
+    # Boss
+    if GAME.boss:
+        GAME.boss.draw(canvas)
+
     # UI Elements
     canvas.draw_polygon([(10, 10), (380, 10), (380, 50), (10, 50)], 2, "Blue", "Blue")
     canvas.draw_text(f"Wave: {GAME.wave} | Kills: {GAME.kills} | Hearts: {GAME.player.hearts}", (20, 40), 24, "White")
+
+    # Boss HUD
+    if GAME.boss:
+        boss = GAME.boss
+        canvas.draw_text(f"⚠ Boss: {boss.name}", (WIDTH / 2 - 150, 40), 28, "Cyan")
+        hud_bar_width = 300
+        hud_bar_height = 20
+        hud_bar_x = WIDTH / 2 - hud_bar_width / 2
+        hud_bar_y = 60
+        max_health = 25 if boss.boss_type == "tank" else 20
+        health_ratio = boss.health / max_health
+        canvas.draw_polygon([
+            (hud_bar_x, hud_bar_y),
+            (hud_bar_x + hud_bar_width, hud_bar_y),
+            (hud_bar_x + hud_bar_width, hud_bar_y + hud_bar_height),
+            (hud_bar_x, hud_bar_y + hud_bar_height)
+        ], 1, "White", "Gray")
+        canvas.draw_polygon([
+            (hud_bar_x, hud_bar_y),
+            (hud_bar_x + hud_bar_width * health_ratio, hud_bar_y),
+            (hud_bar_x + hud_bar_width * health_ratio, hud_bar_y + hud_bar_height),
+            (hud_bar_x, hud_bar_y + hud_bar_height)
+        ], 1, "Red", "Red")
 
     canvas.draw_polygon([(690, 10), (1190, 10), (1190, 50), (690, 50)], 2, "White", "Black")
     canvas.draw_text("Press R to Restart | Press P to Pause/Resume", (700, 35), 24, "White")
@@ -259,30 +403,30 @@ def draw(canvas):
     y_offset = 110
     if GAME.shield_active:
         canvas.draw_text("Shield Active", (60, y_offset), 24, "Yellow")
-        canvas.draw_image(GAME.shield_img, (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2), (GAME.shield_img.get_width(), GAME.shield_img.get_height()), (30, y_offset + 10), (30, 30)), 
+        canvas.draw_image(GAME.shield_img, (GAME.shield_img.get_width()/2, GAME.shield_img.get_height()/2), (GAME.shield_img.get_width(), GAME.shield_img.get_height()), (30, y_offset + 10), (30, 30))
         y_offset += 30
 
     if GAME.rapid_active:
         canvas.draw_text("Rapid Fire Active", (60, y_offset), 24, "Blue")
-        canvas.draw_image(GAME.rapid_img, (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2), (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()), (30, y_offset + 10), (30, 30)) 
+        canvas.draw_image(GAME.rapid_img, (GAME.rapid_img.get_width()/2, GAME.rapid_img.get_height()/2), (GAME.rapid_img.get_width(), GAME.rapid_img.get_height()), (30, y_offset + 10), (30, 30))
         y_offset += 30
 
     if GAME.slow_active:
         canvas.draw_text("Slow Time Active", (60, y_offset), 24, "Red")
         canvas.draw_image(GAME.slow_clock_img, (GAME.slow_clock_img.get_width()/2, GAME.slow_clock_img.get_height()/2), (GAME.slow_clock_img.get_width(), GAME.slow_clock_img.get_height()), (30, y_offset + 10), (40, 30))
 
-    # Wave popup (now appears without pausing the game)
+    # Wave popup
     if GAME.wave_popup_timer > 0:
         canvas.draw_text(GAME.wave_popup_text, (WIDTH // 2 - 100, HEIGHT // 2), 60, "Orange")
 
-    # Paused screen (only shows when manually paused, not during wave popup)
+    # Paused screen
     if GAME.paused and GAME.wave_popup_timer <= 0:
         canvas.draw_polygon([(0, 0), (WIDTH, 0), (WIDTH, HEIGHT), (0, HEIGHT)], 1, "Black", "rgba(0, 0, 0, 0.5)")
         canvas.draw_text("PAUSED", (WIDTH / 2 - 80, HEIGHT / 2), 50, "White")
 
     # Game over screen
     if GAME.game_over:
-        canvas.draw_polygon([(0,0), (WIDTH,0), (WIDTH,HEIGHT), (0,HEIGHT)], 1, "Black", "rgba(0, 0, 0, 0.7)")
+        canvas.draw_polygon([(0, 0), (WIDTH, 0), (WIDTH, HEIGHT), (0, HEIGHT)], 1, "Black", "rgba(0, 0, 0, 0.7)")
         canvas.draw_text("GAME OVER", (WIDTH / 2 - 150, HEIGHT / 2), 50, "Red")
         canvas.draw_text("Press R to Restart", (WIDTH / 2 - 170, HEIGHT / 2 + 60), 30, "White")
         canvas.draw_text("Press M to Return to Menu", (WIDTH / 2 - 200, HEIGHT / 2 + 110), 30, "White")
