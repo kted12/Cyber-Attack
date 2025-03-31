@@ -376,7 +376,7 @@ def draw(canvas):
     # Boss HUD
     if GAME.boss:
         boss = GAME.boss
-        canvas.draw_text(f"⚠ Boss: {boss.name}", (WIDTH / 2 - 150, 40), 28, "Cyan")
+        canvas.draw_text(f"Boss: {boss.name}", (WIDTH / 2 - 150, 40), 28, "Cyan")
         hud_bar_width = 300
         hud_bar_height = 20
         hud_bar_x = WIDTH / 2 - hud_bar_width / 2
