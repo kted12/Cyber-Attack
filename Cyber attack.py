@@ -61,18 +61,30 @@ class Interaction:
     
     
 class Boss:
-    def __init__(self, boss_type, image):
+     def __init__(self, boss_type, image, wave):
         self.pos = Vector(WIDTH // 2, -100)
         self.size = Vector(150, 150)
         self.image = image
-        self.health = 25 if boss_type == "tank" else 20
-        self.speed = 1 if boss_type == "tank" else 2
+
+        # Scale health
+        base_health = 25 if boss_type == "tank" else 20
+        self.health = base_health + (wave - 1) * 3
+
+        # Scale speed slightly (but cap it to prevent insanity)
+        base_speed = 1 if boss_type == "tank" else 2
+        self.speed = min(base_speed + wave * 0.1, 5)
+
         self.boss_type = boss_type
         self.entered_screen = False
         self.direction = 1
         self.bullets = []
-        self.fire_delay = 60 if boss_type == "shooter" else 90
+
+        # Scale fire delay: higher wave → fires more frequently (but not too fast)
+        base_delay = 90 if boss_type != "shooter" else 60
+        self.fire_delay = max(base_delay - wave * 2, 20)
+
         self.fire_timer = 0
+        self.pattern_timer = 0
 
         self.name = {
             "tank": "FIREWALL.EXE",
@@ -80,53 +92,77 @@ class Boss:
             "evader": "GLITCH WRAITH"
         }[boss_type]
 
-    def update(self):
-        if not self.entered_screen:
-            self.pos.y += self.speed
-            if self.pos.y >= 150:
-                self.entered_screen = True
-        else:
+        def update(self):
+            if not self.entered_screen:
+                self.pos.y += self.speed
+                if self.pos.y >= 150:
+                    self.entered_screen = True
+                return  # Wait until boss fully enters
+
             self.pos.x += self.direction * 3
             if self.pos.x < 100 or self.pos.x > WIDTH - 100:
                 self.direction *= -1
 
+            # Evade player bullets
             if self.boss_type == "evader":
                 for bullet in GAME.bullets:
                     if abs(bullet.y - self.pos.y) < 150 and abs(bullet.x - self.pos.x) < 60:
-                        self.pos.x += random.choice([-10, 10])
+                        self.pos.x += random.choice([-20, 20])
                         break
 
+            # Increase pattern timer
             self.fire_timer += 1
-            if self.fire_timer >= self.fire_delay:
-                self.fire_timer = 0
-                self.bullets.append(Vector(self.pos.x, self.pos.y + 50))
+            self.pattern_timer += 1
 
-        for bullet in self.bullets[:]:
-            bullet.y += 5
-            if bullet.y > HEIGHT:
-                self.bullets.remove(bullet)
+            # Boss type-specific patterns
+            if self.boss_type == "tank":
+                if self.pattern_timer % 180 == 0:
+                    # Circle burst attack
+                    for angle in range(0, 360, 30):
+                        rad = math.radians(angle)
+                        dx = math.cos(rad) * 5
+                        dy = math.sin(rad) * 5
+                        self.bullets.append({"pos": Vector(self.pos.x, self.pos.y), "vel": Vector(dx, dy)})
 
-    def draw(self, canvas):
-        canvas.draw_image(self.image,
-            (self.image.get_width() / 2, self.image.get_height() / 2),
-            (self.image.get_width(), self.image.get_height()),
-            self.pos.to_tuple(), self.size.to_tuple())
+            elif self.boss_type == "shooter":
+                if self.fire_timer >= self.fire_delay:
+                    self.fire_timer = 0
+                    # Spread shot (3 directions)
+                    for dx in [-2, 0, 2]:
+                        self.bullets.append({"pos": Vector(self.pos.x, self.pos.y + 50), "vel": Vector(dx, 5)})
 
-        for bullet in self.bullets:
-            canvas.draw_circle(bullet.to_tuple(), 7, 1, "Red", "Red")
+            elif self.boss_type == "evader":
+                if self.pattern_timer % 240 == 0:
+                    # Teleport
+                    self.pos.x = random.randint(100, WIDTH - 100)
+                    self.pos.y = 150 + random.randint(-50, 50)
 
-        # Optional: health bar near boss
-        bar_width = 200
-        bar_height = 20
-        bar_x = self.pos.x - bar_width / 2
-        bar_y = self.pos.y - self.size.y / 2 - 30
-        max_health = 25 if self.boss_type == "tank" else 20
-        health_ratio = self.health / max_health
+            # Move bullets
+            for bullet in self.bullets[:]:
+                bullet["pos"] += bullet["vel"]
+                if bullet["pos"].y > HEIGHT or bullet["pos"].x < 0 or bullet["pos"].x > WIDTH:
+                    self.bullets.remove(bullet)
 
-        canvas.draw_polygon([(bar_x, bar_y), (bar_x + bar_width, bar_y),
-                             (bar_x + bar_width, bar_y + bar_height), (bar_x, bar_y + bar_height)], 1, "White", "Gray")
-        canvas.draw_polygon([(bar_x, bar_y), (bar_x + bar_width * health_ratio, bar_y),
-                             (bar_x + bar_width * health_ratio, bar_y + bar_height), (bar_x, bar_y + bar_height)], 1, "Red", "Red")
+        def draw(self, canvas):
+            canvas.draw_image(self.image,
+                (self.image.get_width() / 2, self.image.get_height() / 2),
+                (self.image.get_width(), self.image.get_height()),
+                self.pos.to_tuple(), self.size.to_tuple())
+
+            for bullet in self.bullets:
+                canvas.draw_circle(bullet["pos"].to_tuple(), 7, 1, "Red", "Red")
+
+            # Health bar
+            bar_width = 200
+            bar_height = 20
+            bar_x = self.pos.x - bar_width / 2
+            bar_y = self.pos.y - self.size.y / 2 - 30
+            max_health = 25 if self.boss_type == "tank" else 20
+            health_ratio = self.health / max_health
+            canvas.draw_polygon([(bar_x, bar_y), (bar_x + bar_width, bar_y),
+                                (bar_x + bar_width, bar_y + bar_height), (bar_x, bar_y + bar_height)], 1, "White", "Gray")
+            canvas.draw_polygon([(bar_x, bar_y), (bar_x + bar_width * health_ratio, bar_y),
+                                (bar_x + bar_width * health_ratio, bar_y + bar_height), (bar_x, bar_y + bar_height)], 1, "Red", "Red")
 
 
 # Game class
@@ -223,11 +259,12 @@ class Game:
         # Boss logic
         if self.in_boss_fight and self.boss:
             self.boss.update()
-            
             for bullet in self.bullets[:]:
                 if Interaction.check_collision(bullet, self.boss.pos, 80):
                     self.bullets.remove(bullet)
                     self.boss.health -= 1
+                    
+
                     if self.boss.health <= 0:
                         self.boss = None
                         self.in_boss_fight = False
@@ -235,14 +272,15 @@ class Game:
                         break
             if self.boss:
                 for bullet in self.boss.bullets[:]:
-                    if Interaction.check_collision(bullet, self.player.pos, 30):
+                    if Interaction.check_collision(bullet["pos"], self.player.pos, 30):
                         if not self.shield_active:
                             self.player.hearts -= 1
-                            if self.boss:
-                                self.boss.bullets.remove(bullet)
-                            if self.player.hearts <= 0:
-                                self.game_over = True
-                                break
+                        self.boss.bullets.remove(bullet)
+                        if self.player.hearts <= 0:
+                            self.game_over = True
+                            break
+
+           
           
 
 
@@ -282,7 +320,9 @@ class Game:
                         if self.wave % 5 == 0:
                             self.in_boss_fight = True
                             boss_type = random.choice(["tank", "shooter", "evader"])
-                            self.boss = Boss(boss_type, self.boss_images[boss_type])
+                            self.boss = Boss(boss_type, self.boss_images[boss_type], self.wave)
+
+                            
                         else:
                             self.enemy_speed *= 1.1
 
