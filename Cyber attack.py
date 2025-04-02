@@ -796,6 +796,11 @@ def draw(canvas):
             (WIDTH / 2 - 80, HEIGHT / 2), 
             50, "White", "sans-serif"
         )
+        canvas.draw_text(
+            "Press M to Return to Menu", 
+            (WIDTH / 2 - 200, HEIGHT / 2 + 110), 
+            30, "White", "sans-serif"
+        )
 
     # ===== GAME OVER SCREEN =====
     if GAME.game_over:
