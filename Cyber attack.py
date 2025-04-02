@@ -46,13 +46,6 @@ class Player:
         self.pos.x = max(0, min(WIDTH, self.pos.x))
         self.pos.y = max(0, min(HEIGHT, self.pos.y))
 
-        if movement.x != 0 or movement.y != 0:
-            self.frame_counter += 1
-            if self.frame_counter % 5 == 0:
-                self.frame_index = (self.frame_index + 1) % 8
-        else:
-            self.frame_index = 1
-
 # Interaction class
 class Interaction:
     @staticmethod
@@ -179,8 +172,8 @@ class Game:
         self.enemy_speed, self.enemy_spawn_rate = 1, 100
 
         # Load images
-        self.background_img = simplegui.load_image("https://i.postimg.cc/MGKW3XzS/C64-F7-E71-FF55-4993-B546-169-BD3-F0445-D.jpg")
-        self.sprite_sheet = simplegui.load_image("https://i.postimg.cc/KcHbNphK/f5f9c273-d809-4446-ad4c-16ff9d255c6d-removalai-preview.png")
+        self.background_img = simplegui.load_image("https://i.postimg.cc/sDQ6rvVd/FDE305-EE-FE9-E-4238-8-C89-6-C1-C522-C7-E09.png")
+        self.player_img = simplegui.load_image("https://i.postimg.cc/8zrqTJX8/FEEFEE13-2510-4598-897-F-A63-B40230-C05.png")
         self.slow_clock_img = simplegui.load_image("https://i.postimg.cc/Y2sXHQ34/clock-e.png")
         self.shield_img = simplegui.load_image("https://i.postimg.cc/65FVwnMy/SHIELDTRAN.png")
         self.rapid_img = simplegui.load_image("https://i.postimg.cc/2SpWgm5W/BULLETTRAN.png")
@@ -222,7 +215,9 @@ class Game:
         self.move_direction = {"up": False, "down": False, "left": False, "right": False} 
 
     def shoot(self):
-        self.bullets.append(Vector(self.player.pos.x + 17, self.player.pos.y - 50))
+        bullet_x = self.player.pos.x
+        bullet_y = self.player.pos.y - self.player.size.y / 2
+        self.bullets.append(Vector(bullet_x, bullet_y))
 
     def spawn_enemy(self):
         img = random.choice(self.enemy_images)
@@ -372,10 +367,10 @@ def draw(canvas):
         return
 
     # Player
-    SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_ROWS, SPRITE_COLS = 600, 453, 8, 8
-    FRAME_WIDTH, FRAME_HEIGHT = SPRITE_WIDTH / SPRITE_COLS, SPRITE_HEIGHT / SPRITE_ROWS
-    sprite_center = (FRAME_WIDTH * GAME.player.frame_index + FRAME_WIDTH / 2, FRAME_HEIGHT / 2)
-    canvas.draw_image(GAME.sprite_sheet, sprite_center, (FRAME_WIDTH, FRAME_HEIGHT), GAME.player.pos.to_tuple(), (100, 100), -math.pi/2)
+    image_width = GAME.player_img.get_width()
+    image_height = GAME.player_img.get_height()
+    image_center = (image_width / 2, image_height / 2)
+    canvas.draw_image(GAME.player_img, image_center, (image_width, image_height), GAME.player.pos.to_tuple(), (100, 100), 0)
 
     # Bullets
     for bullet in GAME.bullets:
